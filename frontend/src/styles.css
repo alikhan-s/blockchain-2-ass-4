@@ -1,0 +1,111 @@
+:root {
+    --gov-accent: #6366f1;
+    --gov-accent-soft: #eef2ff;
+    --gov-success: #10b981;
+    --gov-danger: #ef4444;
+    --gov-muted: #6b7280;
+}
+
+body {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+.app-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.25rem 3rem;
+}
+
+.brand-mark {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--gov-accent);
+}
+
+.card-stat {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: white;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.card-stat:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.08);
+}
+
+.proposal-row {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: white;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: border-color 120ms;
+}
+
+.proposal-row:hover {
+    border-color: var(--gov-accent);
+}
+
+.state-badge {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+}
+
+.state-Pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+.state-Active {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.state-Succeeded {
+    background: #d1fae5;
+    color: #065f46;
+}
+.state-Defeated {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.state-Queued {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+.state-Executed {
+    background: #ccfbf1;
+    color: #115e59;
+}
+.state-Canceled,
+.state-Expired {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.tx-toast {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1080;
+    min-width: 320px;
+    max-width: 420px;
+}
+
+.btn-vote {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.6rem 1rem;
+}
+
+.tally-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    overflow: hidden;
+    display: flex;
+}
