@@ -1,81 +1,222 @@
 # DAO & On-chain Governance System
 
-Production-grade DAO infrastructure built with **Foundry** and **OpenZeppelin v5.1.0**.
+Production-grade DAO infrastructure built with **Foundry** and **OpenZeppelin v5.1.0**, featuring a governance token, linear vesting, on-chain governor, treasury, and a React/Vite frontend.
 
-## Part 1 — Governance Token & Vesting
+---
 
-This module ships two contracts:
+## Architecture overview
 
-| Contract | Purpose |
-| --- | --- |
-| [`GovernanceToken.sol`](src/GovernanceToken.sol) | ERC-20 with `ERC20Votes` (Compound-style delegation) and `ERC20Permit` (EIP-2612 gasless approvals). Total supply minted once and split across four buckets. |
-| [`TokenVesting.sol`](src/TokenVesting.sol) | Linear, 12-month vesting vault that holds the team's 40% allocation. Protected by `ReentrancyGuard` and follows the Checks-Effects-Interactions pattern. |
+```mermaid
+flowchart TD
+    subgraph Token Layer
+        GT[GovernanceToken\nERC20 + Votes + Permit]
+        TV[TokenVesting\n12-month linear]
+    end
 
-### Tokenomics
+    subgraph Governance Layer
+        MG[MyGovernor\nGovernor + Settings +\nCountingSimple +\nVotes + Quorum +\nTimelockControl]
+        TL[TimelockController\n2-day delay]
+    end
 
-- **Total supply:** `100,000,000 GOV` (18 decimals), minted exclusively in the constructor.
-- **Allocations** (basis-point exact, no rounding remainder):
+    subgraph Managed Contracts
+        TR[Treasury\nETH + ERC-20]
+        BX[Box\nstore / retrieve]
+        PR[ParameterRegistry\nonlyOwner → Timelock]
+    end
+
+    subgraph Frontend
+        FE[React + Vite + Ethers v6\nMetaMask integration]
+    end
+
+    GT -->|IVotes| MG
+    MG -->|PROPOSER + CANCELLER| TL
+    TL -->|onlyTimelock| TR
+    TL -->|onlyTimelock| BX
+    TL -->|ownership| PR
+    TV -->|holds 40% allocation| GT
+    FE -->|reads / writes| GT
+    FE -->|reads / writes| MG
+```
+
+---
+
+## Tokenomics
+
+**Total supply:** `100,000,000 GOV` (18 decimals), minted once in the constructor.
 
 ```mermaid
 %%{init: {"theme":"base", "themeVariables": {"pieOuterStrokeWidth": "2px"}} }%%
 pie showData
-    "Team (vested 12m) — 40%" : 40
-    "Treasury — 30%" : 30
-    "Airdrop — 20%" : 20
-    "Liquidity — 10%" : 10
+    "Team (vested 12m) -- 40%" : 40
+    "Treasury -- 30%" : 30
+    "Airdrop -- 20%" : 20
+    "Liquidity -- 10%" : 10
 ```
 
-### Architecture
+---
 
-```mermaid
-flowchart LR
-    Deployer((Deployer)) -->|1. deploy| Vesting[TokenVesting]
-    Deployer -->|2. deploy| Token[GovernanceToken]
-    Token -->|mint 40%| Vesting
-    Token -->|mint 30%| Treasury[Treasury]
-    Token -->|mint 20%| Airdrop[Airdrop]
-    Token -->|mint 10%| Liquidity[Liquidity]
-    Vesting -->|release vested| Beneficiary[Team Member]
-    Beneficiary -->|delegate| Token
-```
+## Contract summary
 
-> **Deployment order note.** `TokenVesting` is deployed *first* using a CREATE-address prediction for the `GovernanceToken`. The token's constructor then mints 40% directly into the already-deployed vault, removing the need for a post-deploy `transfer` step. See [`test/GovernanceToken.t.sol`](test/GovernanceToken.t.sol) (`DeployFixture`) for the canonical pattern.
+| Contract | Source | Purpose |
+| --- | --- | --- |
+| `GovernanceToken` | [`src/GovernanceToken.sol`](src/GovernanceToken.sol) | ERC-20 + ERC20Votes + ERC20Permit. Block-number clock (EIP-6372). |
+| `TokenVesting` | [`src/TokenVesting.sol`](src/TokenVesting.sol) | Linear 12-month vesting vault for the 40% team allocation. `nonReentrant`, CEI. |
+| `MyGovernor` | [`src/MyGovernor.sol`](src/MyGovernor.sol) | OZ Governor stack — 1-day delay, 1-week period, 1% threshold, 4% quorum. |
+| `TimelockController` | OZ v5.1.0 (no changes) | 2-day execution delay. Governor holds PROPOSER + CANCELLER + EXECUTOR roles. |
+| `Treasury` | [`src/Treasury.sol`](src/Treasury.sol) | Holds ETH + ERC-20 for the DAO. All writes guarded by `onlyTimelock`. |
+| `Box` | [`src/Box.sol`](src/Box.sol) | Demo managed contract — `store(uint256)` / `retrieve()`. |
+| `ParameterRegistry` | [`src/ParameterRegistry.sol`](src/ParameterRegistry.sol) | Ownable key-value store; ownership transferred to Timelock. |
 
-### Security highlights
+### Governor parameters
 
-- **Custom errors** (`ZeroAddress`, `DuplicateRecipient`, `NoSchedule`, `NothingToRelease`, …) instead of `require`-strings — gas savings and structured revert reasons.
-- All state mutations precede external calls; `release()` is guarded with `nonReentrant`.
-- `ERC20Votes` checkpoints use `block.timestamp` (`CLOCK_MODE() == "mode=timestamp"`), aligning with EIP-6372 and modern `Governor` deployments.
-- `TokenVesting` enforces the invariant `balance ≥ outstanding + newAmount` before creating each schedule — preventing over-allocation.
+| Parameter | Value | Blocks / Time |
+| --- | --- | --- |
+| `votingDelay` | 7 200 blocks | ~1 day |
+| `votingPeriod` | 50 400 blocks | ~1 week |
+| `proposalThreshold` | 1 000 000 GOV | 1% of supply |
+| `quorumNumerator` | 4 | 4% of supply |
+| `timelockDelay` | 172 800 s | 2 days |
 
-### Test coverage
+---
 
-22 tests across 3 suites, all passing.
-
-```
-forge test
-```
-
-| Suite | Highlights |
-| --- | --- |
-| `GovernanceTokenAllocationTest` | Total supply, exact 40/30/20/10 split, zero-address and duplicate-recipient reverts. |
-| `GovernanceTokenVotesTest` | Self-delegation activation, third-party delegation, `getPastVotes` snapshots before/after transfer, EIP-2612 `permit` signature flow with relayer, expired-deadline revert, EIP-6372 clock mode. |
-| `TokenVestingTest` | Zero release at `t = start`, exact 50% release at half-way, full release after duration, clamping past the schedule end, accumulating partial releases at 25% / 75% milestones, future-start schedules, `NoSchedule` / duplicate / non-owner / over-allocation reverts, end-to-end vest-then-delegate flow. |
-
-### Running the project
+## Deployment
 
 ```bash
-forge install              # restore submodules
-forge build                # compile
-forge test -vv             # run the suite
+# 1. Copy and fill env
+cp .env.example .env
+# Required: DEPLOYER_PRIVATE_KEY, TREASURY_EOA, AIRDROP_RECIPIENT, LIQUIDITY_RECIPIENT
+# Optional: TIMELOCK_DELAY (default 172800), OPEN_EXECUTOR (default true)
+
+# 2. Dry-run (no broadcast)
+forge script script/DeployDAO.s.sol:DeployDAO --rpc-url $RPC_URL -vvvv
+
+# 3. Deploy + verify
+forge script script/DeployDAO.s.sol:DeployDAO \
+  --rpc-url $RPC_URL \
+  --broadcast \
+  --verify \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  -vvvv
 ```
 
-### Layout
+The script ([`script/DeployDAO.s.sol`](script/DeployDAO.s.sol)):
+1. Predicts the `GovernanceToken` address using `vm.computeCreateAddress` to break the circular constructor dependency with `TokenVesting`.
+2. Deploys in order: Vesting → Token → Timelock → Governor → Treasury → Box.
+3. Wires PROPOSER, CANCELLER, and EXECUTOR roles on the Timelock.
+4. Revokes `DEFAULT_ADMIN_ROLE` from the deployer — the DAO becomes self-sovereign.
+5. Runs `_assertInvariants()` to verify all invariants before returning.
+
+> **Stop-the-line:** if `hasRole(DEFAULT_ADMIN_ROLE, deployer)` returns `true` after deploy, something went wrong — do not use the contracts. See [`POST_DEPLOYMENT.md`](POST_DEPLOYMENT.md).
+
+---
+
+## Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local   # fill VITE_* addresses after deploy
+npm run dev                  # http://localhost:5173
+```
+
+**Tech stack:** React 18, Vite, ethers v6, Bootstrap 5 (CDN).
+
+Screens: connect wallet → dashboard (voting power, delegate) → proposal list → proposal view (cast For / Against / Abstain) → transaction toast.
+
+See [`frontend/README.md`](frontend/README.md) for full layout, hook documentation, and screen mockups.
+
+---
+
+## Tests
+
+**46 tests, all passing** under `forge test`.
+
+```bash
+forge test -vv          # run all suites
+forge test -vvvv        # verbose with console2 output (lifecycle trace)
+forge test --match-contract GovernorLifecycle -vvvv   # full 8-step lifecycle log
+```
+
+| Suite | File | Tests |
+| --- | --- | --- |
+| `GovernanceTokenAllocationTest` | `test/GovernanceToken.t.sol` | 4 |
+| `GovernanceTokenVotesTest` | `test/GovernanceToken.t.sol` | 7 |
+| `TokenVestingTest` | `test/GovernanceToken.t.sol` | 11 |
+| `GovernorWiringTest` | `test/Governor.t.sol` | 2 |
+| `GovernorLifecycleTest` | `test/Governor.t.sol` | 1 |
+| `GovernorParameterChangeTest` | `test/Governor.t.sol` | 3 |
+| `GovernorFailureTest` | `test/Governor.t.sol` | 6 |
+| `GovernorDelegationTest` | `test/Governor.t.sol` | 3 |
+| `BoxE2ETest` | `test/E2E.t.sol` | 3 |
+| `TreasuryE2ETest` | `test/E2E.t.sol` | 6 |
+
+---
+
+## Security
+
+See [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md) for:
+- Static analysis (Slither) — all findings annotated with accept/fix decisions.
+- Centralization risk analysis — 5 defence-in-depth layers against a majority-takeover.
+- Flash-loan governance attack — why `getPastVotes` + `votingDelay > 0` defeats it.
+- Per-contract findings (GovernanceToken, TokenVesting, MyGovernor, Treasury, Box).
+- Recommendations (priority-ordered): Guardian multisig, `GovernorPreventLateQuorum`, vesting revoke path.
+
+See [`POST_DEPLOYMENT.md`](POST_DEPLOYMENT.md) for:
+- Etherscan verification checklist (exact expected values for every view function).
+- The Graph subgraph schema (Proposal, Vote, Delegation, DelegateLeaderboard, VestingRelease, TreasuryFlow).
+- Tenderly / OZ Defender Sentinel rules at P0 / P1 / P2 levels.
+- Health-check cron job (Python assertions, run every 5 min).
+- Incident response runbook.
+
+---
+
+## Project layout
 
 ```
-src/
-├── GovernanceToken.sol    # ERC20 + Votes + Permit
-└── TokenVesting.sol       # 12-month linear vesting
-test/
-└── GovernanceToken.t.sol  # 22 tests, 3 suites
+.
+├── foundry.toml                  # solc 0.8.27, optimizer 200, via_ir = true
+├── src/
+│   ├── GovernanceToken.sol
+│   ├── TokenVesting.sol
+│   ├── MyGovernor.sol
+│   ├── Treasury.sol
+│   ├── Box.sol
+│   └── ParameterRegistry.sol
+├── test/
+│   ├── GovernanceToken.t.sol     # 22 token + vesting tests
+│   ├── Governor.t.sol            # 15 governor tests
+│   └── E2E.t.sol                 # 9 end-to-end tests
+├── script/
+│   └── DeployDAO.s.sol           # full deploy + role wiring + invariant check
+├── frontend/
+│   ├── src/
+│   │   ├── context/Web3Context.jsx
+│   │   ├── hooks/               # useContracts, useTokenInfo, useProposals, useTxState
+│   │   ├── components/          # Header, Dashboard, ProposalList, ProposalView, ...
+│   │   └── abis/
+│   └── README.md
+├── SECURITY_AUDIT.md
+└── POST_DEPLOYMENT.md
 ```
+
+---
+
+## Quick start (local Anvil)
+
+```bash
+# Terminal 1 — local chain
+anvil
+
+# Terminal 2 — deploy
+forge script script/DeployDAO.s.sol:DeployDAO \
+  --rpc-url http://localhost:8545 \
+  --broadcast \
+  -vvvv
+
+# Terminal 3 — frontend
+cd frontend
+# paste deployed addresses into .env.local
+npm run dev
+```
+
+Import an Anvil dev key into MetaMask (network: `http://localhost:8545`, chainId `31337`) and open `http://localhost:5173`.
