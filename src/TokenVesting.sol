@@ -12,9 +12,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract TokenVesting is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
-    /*//////////////////////////////////////////////////////////////
-                                 ERRORS
-    //////////////////////////////////////////////////////////////*/
+    //    ERRORS
 
     error ZeroAddress();
     error ZeroAmount();
@@ -23,16 +21,12 @@ contract TokenVesting is ReentrancyGuard, Ownable {
     error NothingToRelease();
     error InsufficientUnallocatedBalance(uint256 requested, uint256 available);
 
-    /*//////////////////////////////////////////////////////////////
-                                CONSTANTS
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTANTS
 
     /// @notice Vesting duration: 12 months (365 days).
     uint64 public constant VESTING_DURATION = 365 days;
 
-    /*//////////////////////////////////////////////////////////////
-                                  TYPES
-    //////////////////////////////////////////////////////////////*/
+    //    TYPES
 
     struct Schedule {
         uint128 totalAmount;
@@ -40,9 +34,7 @@ contract TokenVesting is ReentrancyGuard, Ownable {
         uint64 start;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                 STATE
-    //////////////////////////////////////////////////////////////*/
+    //    STATE
 
     IERC20 public immutable token;
 
@@ -54,25 +46,19 @@ contract TokenVesting is ReentrancyGuard, Ownable {
     /// @notice Cumulative amount of tokens released to beneficiaries so far.
     uint256 public totalReleased;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
+    //    EVENTS
 
     event ScheduleCreated(address indexed beneficiary, uint256 amount, uint64 start, uint64 duration);
     event TokensReleased(address indexed beneficiary, uint256 amount);
 
-    /*//////////////////////////////////////////////////////////////
-                                CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTRUCTOR
 
     constructor(address token_, address owner_) Ownable(owner_) {
         if (token_ == address(0) || owner_ == address(0)) revert ZeroAddress();
         token = IERC20(token_);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            ADMIN FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //    ADMIN FUNCTIONS
 
     /// @notice Create a linear vesting schedule for a beneficiary.
     /// @param beneficiary Address that will be able to claim vested tokens.
@@ -101,9 +87,7 @@ contract TokenVesting is ReentrancyGuard, Ownable {
         emit ScheduleCreated(beneficiary, amount, effectiveStart, VESTING_DURATION);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          BENEFICIARY ACTIONS
-    //////////////////////////////////////////////////////////////*/
+    //    BENEFICIARY ACTIONS
 
     /// @notice Release all tokens currently vested to the caller.
     function release() external nonReentrant {
@@ -124,9 +108,7 @@ contract TokenVesting is ReentrancyGuard, Ownable {
         emit TokensReleased(msg.sender, amount);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                 VIEWS
-    //////////////////////////////////////////////////////////////*/
+    //    VIEWS
 
     function scheduleOf(address beneficiary) external view returns (Schedule memory) {
         return _schedules[beneficiary];
@@ -149,9 +131,7 @@ contract TokenVesting is ReentrancyGuard, Ownable {
         return totalAllocated - totalReleased;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                INTERNAL
-    //////////////////////////////////////////////////////////////*/
+    //    INTERNAL
 
     function _vestedAmount(Schedule memory s, uint64 timestamp) internal pure returns (uint256) {
         if (s.totalAmount == 0 || timestamp <= s.start) return 0;

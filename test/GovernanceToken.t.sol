@@ -76,20 +76,18 @@ contract GovernanceTokenVotesTest is DeployFixture {
     }
 
     function test_VotingPowerSnapshotsViaGetPastVotes() public {
-        // Use absolute block numbers to avoid any ordering ambiguity between
-        // `vm.roll` cheatcode application and Solidity reads of block.number.
         vm.roll(100);
 
-        // 1) Self-delegate at block 100 (snapshotted under timepoint 100).
+        // Self-delegate at block 100 (snapshotted under timepoint 100).
         vm.prank(treasury);
         token.delegate(treasury);
 
-        // 2) Move to block 101 and transfer half away (new checkpoint at 101).
+        // Move to block 101 and transfer half away (new checkpoint at 101).
         vm.roll(101);
         vm.prank(treasury);
         token.transfer(makeAddr("buyer"), 15_000_000 ether);
 
-        // 3) Move to block 102 so that 100 and 101 are strictly in the past.
+        // Move to block 102 so that 100 and 101 are strictly in the past.
         vm.roll(102);
 
         // Past votes at block 100: full 30M (transfer happened later).
@@ -127,7 +125,7 @@ contract GovernanceTokenVotesTest is DeployFixture {
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
 
-        // Anyone can submit the permit; gas is paid by the relayer.
+        // Anyone can submit the permit. Gas is paid by the relayer.
         address relayer = makeAddr("relayer");
         vm.prank(relayer);
         token.permit(ownerEoa, spender, value, deadline, v, r, s);
@@ -221,7 +219,7 @@ contract TokenVestingTest is DeployFixture {
     }
 
     function test_VestingClampsAfterDurationEnds() public {
-        // Warp far past the schedule's end — vested must clamp to totalAmount.
+        // Warp far past the schedule's end - vested must clamp to totalAmount.
         vm.warp(startTs + vesting.VESTING_DURATION() + 365 days);
         assertEq(vesting.vested(alice), ALICE_AMOUNT);
         assertEq(vesting.releasable(alice), ALICE_AMOUNT);

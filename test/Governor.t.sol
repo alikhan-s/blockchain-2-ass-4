@@ -13,11 +13,9 @@ import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 /// @dev Shared deployment for the entire DAO stack:
-///      Token → Vesting → Timelock(2-day) → Governor → wire roles → distribute votes.
+///      Token -> Vesting -> Timelock(2-day) -> Governor -> wire roles -> distribute votes.
 abstract contract DAOFixture is Test {
-    /*//////////////////////////////////////////////////////////////
-                              CONSTANTS
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTANTS
 
     uint256 internal constant TOTAL_SUPPLY = 100_000_000 ether;
     uint256 internal constant ALICE_VOTES = 5_000_000 ether; // > quorum (4M) alone
@@ -27,9 +25,7 @@ abstract contract DAOFixture is Test {
 
     uint256 internal constant TIMELOCK_DELAY = 2 days;
 
-    /*//////////////////////////////////////////////////////////////
-                                ACTORS
-    //////////////////////////////////////////////////////////////*/
+    //    ACTORS
 
     address internal deployer = makeAddr("deployer");
     address internal treasuryEoa = makeAddr("treasuryEoa"); // initial token treasury (pre-DAO)
@@ -41,9 +37,7 @@ abstract contract DAOFixture is Test {
     address internal charlie = makeAddr("charlie");
     address internal smallHolder = makeAddr("smallHolder");
 
-    /*//////////////////////////////////////////////////////////////
-                              CONTRACTS
-    //////////////////////////////////////////////////////////////*/
+    //    CONTRACTS
 
     GovernanceToken internal token;
     TokenVesting internal vesting;
@@ -54,32 +48,24 @@ abstract contract DAOFixture is Test {
     function setUp() public virtual {
         vm.startPrank(deployer);
 
-        // ---------------------------------------------------------
-        // 1. Token + Vesting (CREATE-address prediction)
-        // ---------------------------------------------------------
+        //    Token + Vesting (CREATE-address prediction)
         uint64 startNonce = vm.getNonce(deployer);
         address predictedToken = vm.computeCreateAddress(deployer, startNonce + 1);
         vesting = new TokenVesting(predictedToken, deployer);
         token = new GovernanceToken(address(vesting), treasuryEoa, airdrop, liquidity);
         require(address(token) == predictedToken, "create-address mismatch");
 
-        // ---------------------------------------------------------
-        // 2. TimelockController -- admin role temporarily granted to deployer
+        //    TimelockController -- admin role temporarily granted to deployer
         //    so we can wire Governor roles, then revoked.
-        // ---------------------------------------------------------
         address[] memory proposers; // empty (will grant to Governor below)
-        address[] memory executors; // empty (will grant to Governor below)
+        address[] memory executors; // empty
         timelock = new TimelockController(TIMELOCK_DELAY, proposers, executors, deployer);
 
-        // ---------------------------------------------------------
-        // 3. Governor
-        // ---------------------------------------------------------
+        //    Governor
         governor = new MyGovernor(IVotes(address(token)), timelock);
 
-        // ---------------------------------------------------------
-        // 4. Roles: Governor is the sole PROPOSER & sole EXECUTOR.
-        //          Then revoke admin role from deployer (DAO becomes self-sovereign).
-        // ---------------------------------------------------------
+        //    Roles: Governor is the sole PROPOSER & sole EXECUTOR.
+        //    Then revoke admin role from deployer (DAO becomes self-sovereign).
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
         timelock.grantRole(timelock.EXECUTOR_ROLE(), address(governor));
         timelock.grantRole(timelock.CANCELLER_ROLE(), address(governor));
@@ -87,16 +73,12 @@ abstract contract DAOFixture is Test {
 
         vm.stopPrank();
 
-        // ---------------------------------------------------------
-        // 5. Auxiliary: ParameterRegistry whose owner is the Timelock,
+        //    Auxiliary: ParameterRegistry whose owner is the Timelock,
         //    so only DAO-executed proposals can change `value`.
-        // ---------------------------------------------------------
         registry = new ParameterRegistry(address(timelock), 1);
 
-        // ---------------------------------------------------------
-        // 6. Distribute voting tokens from treasury EOA to test voters
+        //    Distribute voting tokens from treasury EOA to test voters
         //    (in production, the treasury would itself be the Timelock).
-        // ---------------------------------------------------------
         vm.startPrank(treasuryEoa);
         token.transfer(alice, ALICE_VOTES);
         token.transfer(bob, BOB_VOTES);
@@ -121,9 +103,7 @@ abstract contract DAOFixture is Test {
         token.delegate(who);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          PROPOSAL HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //    PROPOSAL HELPERS
 
     /// @dev Build a single-action proposal (token.transfer from Timelock).
     function _buildTransferProposal(address recipient, uint256 amount, string memory description)
@@ -161,9 +141,7 @@ abstract contract DAOFixture is Test {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                       1. ROLES & WIRING
-//////////////////////////////////////////////////////////////*/
+//    ROLES & WIRING
 
 contract GovernorWiringTest is DAOFixture {
     function test_GovernorParametersAreCorrect() public view {
@@ -186,9 +164,7 @@ contract GovernorWiringTest is DAOFixture {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                  2. FULL LIFECYCLE (token transfer)
-//////////////////////////////////////////////////////////////*/
+//    2. FULL LIFECYCLE (token transfer)
 
 contract GovernorLifecycleTest is DAOFixture {
     /// @notice End-to-end happy path with verbose logging suitable for a report.
@@ -208,9 +184,7 @@ contract GovernorLifecycleTest is DAOFixture {
         console2.log("[setup] Timelock delay (sec):   %s", timelock.getMinDelay());
         console2.log("");
 
-        // ----------------------------------------------------------
         // STEP 1 -- Build proposal payload
-        // ----------------------------------------------------------
         (
             address[] memory targets,
             uint256[] memory values,
@@ -222,26 +196,20 @@ contract GovernorLifecycleTest is DAOFixture {
         console2.log("[step 1] Proposer = alice (5M voting power)");
         console2.log("[step 1] Action: token.transfer(grantRecipient, 100_000 ether)");
 
-        // ----------------------------------------------------------
         // STEP 2 -- Propose
-        // ----------------------------------------------------------
         vm.prank(alice);
         uint256 proposalId = governor.propose(targets, values, calldatas, desc);
         console2.log("[step 2] Proposal created. id =", proposalId);
         console2.log("[step 2] State -> %s", _stateLabel(governor.state(proposalId)));
         assertEq(uint256(governor.state(proposalId)), uint256(IGovernor.ProposalState.Pending));
 
-        // ----------------------------------------------------------
         // STEP 3 -- Roll past voting delay (proposal becomes Active)
-        // ----------------------------------------------------------
         vm.roll(block.number + governor.votingDelay() + 1);
         console2.log("[step 3] Rolled forward votingDelay+1 blocks. block.number =", block.number);
         console2.log("[step 3] State -> %s", _stateLabel(governor.state(proposalId)));
         assertEq(uint256(governor.state(proposalId)), uint256(IGovernor.ProposalState.Active));
 
-        // ----------------------------------------------------------
         // STEP 4 -- Cast votes (alice + bob vote For, charlie Abstain)
-        // ----------------------------------------------------------
         vm.prank(alice);
         governor.castVote(proposalId, 1); // For
         console2.log("[step 4] alice voted For   (5_000_000 GOV)");
@@ -257,31 +225,23 @@ contract GovernorLifecycleTest is DAOFixture {
         (uint256 against, uint256 forVotes, uint256 abstain) = governor.proposalVotes(proposalId);
         console2.log("[step 4] Tally: For=%s Against=%s Abstain=%s", forVotes / 1 ether, against, abstain / 1 ether);
 
-        // ----------------------------------------------------------
         // STEP 5 -- Roll past voting period (proposal Succeeded)
-        // ----------------------------------------------------------
         vm.roll(block.number + governor.votingPeriod() + 1);
         console2.log("[step 5] Rolled forward votingPeriod+1 blocks. block.number =", block.number);
         console2.log("[step 5] State -> %s", _stateLabel(governor.state(proposalId)));
         assertEq(uint256(governor.state(proposalId)), uint256(IGovernor.ProposalState.Succeeded));
 
-        // ----------------------------------------------------------
         // STEP 6 -- Queue into Timelock
-        // ----------------------------------------------------------
         governor.queue(targets, values, calldatas, descHash);
         console2.log("[step 6] Proposal queued in TimelockController.");
         console2.log("[step 6] State -> %s", _stateLabel(governor.state(proposalId)));
         assertEq(uint256(governor.state(proposalId)), uint256(IGovernor.ProposalState.Queued));
 
-        // ----------------------------------------------------------
         // STEP 7 -- Wait the 2-day timelock delay
-        // ----------------------------------------------------------
         vm.warp(block.timestamp + 2 days + 1);
         console2.log("[step 7] Warped forward 2 days. block.timestamp =", block.timestamp);
 
-        // ----------------------------------------------------------
         // STEP 8 -- Execute
-        // ----------------------------------------------------------
         uint256 timelockBefore = token.balanceOf(address(timelock));
         governor.execute(targets, values, calldatas, descHash);
         console2.log("[step 8] Proposal executed.");
@@ -296,9 +256,7 @@ contract GovernorLifecycleTest is DAOFixture {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-        3. PROPOSAL CHANGING ANOTHER CONTRACT'S PARAMETERS
-//////////////////////////////////////////////////////////////*/
+//    PROPOSAL CHANGING ANOTHER CONTRACT'S PARAMETERS
 
 contract GovernorParameterChangeTest is DAOFixture {
     function test_ProposalChangesRegistryValue() public {
@@ -367,9 +325,7 @@ contract GovernorParameterChangeTest is DAOFixture {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                  4. FAILURE / REVERT SCENARIOS
-//////////////////////////////////////////////////////////////*/
+//    FAILURE / REVERT SCENARIOS
 
 contract GovernorFailureTest is DAOFixture {
     function test_DefeatedWhen_QuorumNotMet() public {
@@ -497,9 +453,7 @@ contract GovernorFailureTest is DAOFixture {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                       5. DELEGATION TESTS
-//////////////////////////////////////////////////////////////*/
+//    5. DELEGATION TESTS
 
 contract GovernorDelegationTest is DAOFixture {
     function test_DelegateVotesOnBehalfOfDelegator() public {

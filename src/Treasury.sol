@@ -17,9 +17,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 contract Treasury is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    /*//////////////////////////////////////////////////////////////
-                                 ERRORS
-    //////////////////////////////////////////////////////////////*/
+    //    ERRORS
 
     error NotTimelock(address caller);
     error ZeroAddress();
@@ -27,43 +25,33 @@ contract Treasury is ReentrancyGuard {
     error InsufficientETH(uint256 requested, uint256 available);
     error CallFailed();
 
-    /*//////////////////////////////////////////////////////////////
-                                 STATE
-    //////////////////////////////////////////////////////////////*/
+    //    STATE
 
     /// @notice The TimelockController is the sole privileged caller.
     address public immutable timelock;
 
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
+    //    EVENTS
 
     event ETHReceived(address indexed from, uint256 amount);
     event ETHWithdrawn(address indexed to, uint256 amount);
     event ERC20Withdrawn(address indexed token, address indexed to, uint256 amount);
     event ArbitraryCall(address indexed target, uint256 value, bytes data);
 
-    /*//////////////////////////////////////////////////////////////
-                              MODIFIERS
-    //////////////////////////////////////////////////////////////*/
+    //    MODIFIERS
 
     modifier onlyTimelock() {
         if (msg.sender != timelock) revert NotTimelock(msg.sender);
         _;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTRUCTOR
 
     constructor(address timelock_) {
         if (timelock_ == address(0)) revert ZeroAddress();
         timelock = timelock_;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                              ETH HANDLING
-    //////////////////////////////////////////////////////////////*/
+    //    ETH HANDLING
 
     receive() external payable {
         emit ETHReceived(msg.sender, msg.value);
@@ -80,9 +68,7 @@ contract Treasury is ReentrancyGuard {
         Address.sendValue(to, amount);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                              ERC-20 HANDLING
-    //////////////////////////////////////////////////////////////*/
+    //    ERC-20 HANDLING
 
     /// @notice Send `amount` of `token` to `to`. DAO-only.
     function withdrawERC20(IERC20 token, address to, uint256 amount) external onlyTimelock nonReentrant {
@@ -93,9 +79,7 @@ contract Treasury is ReentrancyGuard {
         token.safeTransfer(to, amount);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            ARBITRARY EXECUTION
-    //////////////////////////////////////////////////////////////*/
+    //    ARBITRARY EXECUTION
 
     /// @notice Execute an arbitrary low-level call. Reserved for parameter updates and
     ///         contract upgrades that are not expressible via `withdraw*`.
@@ -114,9 +98,7 @@ contract Treasury is ReentrancyGuard {
         if (!ok) revert CallFailed();
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                 VIEWS
-    //////////////////////////////////////////////////////////////*/
+    //    VIEWS
 
     function ethBalance() external view returns (uint256) {
         return address(this).balance;

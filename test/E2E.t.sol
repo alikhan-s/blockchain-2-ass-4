@@ -73,9 +73,7 @@ abstract contract E2EFixture is Test {
         vm.roll(block.number + 1);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          GOVERNANCE HELPER
-    //////////////////////////////////////////////////////////////*/
+    //    GOVERNANCE HELPER
 
     /// @dev Run a single-action proposal end-to-end: propose → wait → vote For → wait →
     ///      queue → wait timelock → execute. Returns the proposal id.
@@ -107,9 +105,7 @@ abstract contract E2EFixture is Test {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                          E2E: Box.store(42)
-//////////////////////////////////////////////////////////////*/
+//    E2E: Box.store(42)
 
 contract BoxE2ETest is E2EFixture {
     /// @notice The canonical E2E flow requested in the spec.
@@ -147,9 +143,7 @@ contract BoxE2ETest is E2EFixture {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                          E2E: Treasury
-//////////////////////////////////////////////////////////////*/
+//    E2E: Treasury
 
 contract TreasuryE2ETest is E2EFixture {
     function test_TreasuryAcceptsETHViaReceive() public {

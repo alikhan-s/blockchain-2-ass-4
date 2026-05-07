@@ -14,7 +14,7 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 /// @title DeployDAO
 /// @notice Foundry script that deploys the full DAO stack in canonical order:
-///         (TokenVesting →) Token → Timelock → Governor → Treasury → Box
+///         (TokenVesting ->) Token -> Timelock -> Governor -> Treasury -> Box
 ///         and wires every role correctly, leaving the system fully self-sovereign.
 ///
 /// @dev    Required env vars (set in `.env` and source it before running, or pass via -e):
@@ -29,20 +29,9 @@ import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 ///                                     (anyone can execute queued proposals after the delay).
 ///                                     "false" to restrict execution to the Governor only.
 ///                                     Default: "true" (the most common production pattern).
-///
-/// @dev    Run (broadcast):
-///           forge script script/DeployDAO.s.sol:DeployDAO \
-///             --rpc-url $RPC_URL --broadcast --verify -vvvv
 contract DeployDAO is Script {
-    /*//////////////////////////////////////////////////////////////
-                              DEFAULTS
-    //////////////////////////////////////////////////////////////*/
 
     uint256 internal constant DEFAULT_TIMELOCK_DELAY = 2 days;
-
-    /*//////////////////////////////////////////////////////////////
-                          DEPLOYMENT RESULT
-    //////////////////////////////////////////////////////////////*/
 
     struct Deployment {
         TokenVesting vesting;
@@ -53,14 +42,8 @@ contract DeployDAO is Script {
         Box box;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                 RUN
-    //////////////////////////////////////////////////////////////*/
-
     function run() external returns (Deployment memory dep) {
-        // ---------------------------------------------------------
-        // 1. Read configuration
-        // ---------------------------------------------------------
+
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(pk);
 
@@ -85,14 +68,12 @@ contract DeployDAO is Script {
 
         vm.startBroadcast(pk);
 
-        // ---------------------------------------------------------
-        // 2. Vesting + Token (handles the constructor circular dep)
+        //    Vesting + Token (handles the constructor circular dep)
         //
         //    The token's constructor mints 40% directly to the vesting
         //    contract, so vesting must exist first. To avoid a 2-step
         //    setup we predict the token's CREATE address using the
         //    deployer nonce.
-        // ---------------------------------------------------------
         uint64 nonce = vm.getNonce(deployer);
         address predictedToken = vm.computeCreateAddress(deployer, nonce + 1);
 
@@ -103,29 +84,18 @@ contract DeployDAO is Script {
         console2.log("[1] TokenVesting    :", address(dep.vesting));
         console2.log("[2] GovernanceToken :", address(dep.token));
 
-        // ---------------------------------------------------------
-        // 3. Timelock — proposers/executors are wired AFTER the
+        //    Timelock — proposers/executors are wired AFTER the
         //    Governor exists. Deployer is the temporary admin so we
         //    can call grantRole, then we revoke it.
-        // ---------------------------------------------------------
         address[] memory empty;
         dep.timelock = new TimelockController(timelockDelay, empty, empty, deployer);
         console2.log("[3] TimelockController:", address(dep.timelock));
 
-        // ---------------------------------------------------------
-        // 4. Governor
-        // ---------------------------------------------------------
+        //    Governor
         dep.governor = new MyGovernor(IVotes(address(dep.token)), dep.timelock);
         console2.log("[4] MyGovernor      :", address(dep.governor));
 
-        // ---------------------------------------------------------
-        // 5. Wire roles on the Timelock:
-        //      PROPOSER_ROLE  → Governor
-        //      CANCELLER_ROLE → Governor
-        //      EXECUTOR_ROLE  → address(0) (open) or Governor (restricted)
-        //    Then revoke DEFAULT_ADMIN_ROLE from deployer so the DAO
-        //    becomes self-sovereign.
-        // ---------------------------------------------------------
+        //    Wiring roles on the Timelock
         bytes32 PROPOSER = dep.timelock.PROPOSER_ROLE();
         bytes32 EXECUTOR = dep.timelock.EXECUTOR_ROLE();
         bytes32 CANCELLER = dep.timelock.CANCELLER_ROLE();
@@ -137,8 +107,6 @@ contract DeployDAO is Script {
         if (openExecutor) {
             // Granting EXECUTOR to address(0) is the OZ-encoded way to make the
             // role open: anyone can execute a queued proposal after the delay.
-            // This is desirable on mainnet because it lets a community keeper
-            // execute even if the Governor is offline.
             dep.timelock.grantRole(EXECUTOR, address(0));
             console2.log("    EXECUTOR_ROLE -> address(0) (open executor)");
         } else {
@@ -146,13 +114,11 @@ contract DeployDAO is Script {
             console2.log("    EXECUTOR_ROLE -> governor (restricted)");
         }
 
-        // Final hand-off: revoke admin from deployer.
+        //    Final hand-off: revoke admin from deployer.
         dep.timelock.revokeRole(ADMIN, deployer);
         console2.log("    DEFAULT_ADMIN_ROLE revoked from deployer");
 
-        // ---------------------------------------------------------
-        // 6. Treasury & Box (DAO-managed contracts)
-        // ---------------------------------------------------------
+        //    Treasury & Box (DAO-managed contracts)
         dep.treasury = new Treasury(address(dep.timelock));
         dep.box = new Box(address(dep.timelock));
         console2.log("[5] Treasury        :", address(dep.treasury));
@@ -160,9 +126,7 @@ contract DeployDAO is Script {
 
         vm.stopBroadcast();
 
-        // ---------------------------------------------------------
-        // 7. Post-deploy invariants (read-only, no broadcast)
-        // ---------------------------------------------------------
+        //    Post-deploy invariants (read-only, no broadcast)
         _assertInvariants(dep, deployer, openExecutor);
 
         console2.log("");
@@ -171,9 +135,7 @@ contract DeployDAO is Script {
         console2.log("==========================================");
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          INVARIANT CHECKS
-    //////////////////////////////////////////////////////////////*/
+    //    INVARIANT CHECKS
 
     function _assertInvariants(Deployment memory dep, address deployer, bool openExecutor) internal view {
         require(dep.token.totalSupply() == 100_000_000 ether, "supply != 100M");
@@ -207,9 +169,7 @@ contract DeployDAO is Script {
         require(dep.box.timelock() == address(dep.timelock), "box.timelock");
     }
 
-    /*//////////////////////////////////////////////////////////////
-                              ENV HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //    ENV HELPERS
 
     function _envOrDefaultUint(string memory key, uint256 fallbackValue) internal view returns (uint256) {
         try vm.envUint(key) returns (uint256 v) {

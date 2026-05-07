@@ -22,7 +22,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 /// - Voting period:      50_400 blocks  (~1 week at 12s/block)
 /// - Proposal threshold:  1% of total supply
 /// - Quorum:              4% of total supply
-/// - Timelock min delay:  2 days (set on the TimelockController)
+/// - Timelock min delay:  2 days
 contract MyGovernor is
     Governor,
     GovernorSettings,
@@ -48,9 +48,7 @@ contract MyGovernor is
         GovernorTimelockControl(timelock_)
     {}
 
-    /*//////////////////////////////////////////////////////////////
-                       OVERRIDES (multi-inheritance)
-    //////////////////////////////////////////////////////////////*/
+    //    OVERRIDES (multi-inheritance)
 
     function votingDelay() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.votingDelay();

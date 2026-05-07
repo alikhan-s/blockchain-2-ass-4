@@ -10,16 +10,12 @@ import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 /// @notice ERC20 governance token with EIP-2612 permit and vote delegation (ERC20Votes).
 /// @dev Total supply minted once in constructor and split between Team / Treasury / Airdrop / Liquidity.
 contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes {
-    /*//////////////////////////////////////////////////////////////
-                                 ERRORS
-    //////////////////////////////////////////////////////////////*/
+    //    ERRORS
 
     error ZeroAddress();
     error DuplicateRecipient();
 
-    /*//////////////////////////////////////////////////////////////
-                                CONSTANTS
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTANTS
 
     /// @notice Total supply: 100,000,000 tokens (18 decimals).
     uint256 public constant TOTAL_SUPPLY = 100_000_000 ether;
@@ -37,18 +33,14 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes {
     uint256 public constant AIRDROP_ALLOCATION = (TOTAL_SUPPLY * AIRDROP_BPS) / _BPS_DENOMINATOR;
     uint256 public constant LIQUIDITY_ALLOCATION = (TOTAL_SUPPLY * LIQUIDITY_BPS) / _BPS_DENOMINATOR;
 
-    /*//////////////////////////////////////////////////////////////
-                              IMMUTABLES
-    //////////////////////////////////////////////////////////////*/
+    //    IMMUTABLES
 
     address public immutable teamVesting;
     address public immutable treasury;
     address public immutable airdrop;
     address public immutable liquidity;
 
-    /*//////////////////////////////////////////////////////////////
-                                CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    //    CONSTRUCTOR
 
     /// @param teamVesting_ Vesting contract receiving 40% (linear unlock).
     /// @param treasury_ DAO treasury receiving 30%.
@@ -80,9 +72,7 @@ contract GovernanceToken is ERC20, ERC20Permit, ERC20Votes {
         _mint(liquidity_, LIQUIDITY_ALLOCATION);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          REQUIRED OVERRIDES
-    //////////////////////////////////////////////////////////////*/
+    //    REQUIRED OVERRIDES
 
     /// @inheritdoc ERC20
     function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Votes) {
