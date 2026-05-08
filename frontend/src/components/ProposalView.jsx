@@ -2,6 +2,7 @@ import {useState} from "react";
 import {useWeb3} from "../context/Web3Context.jsx";
 import {useContracts} from "../hooks/useContracts.js";
 import {useProposal} from "../hooks/useProposals.js";
+import {useTokenInfo} from "../hooks/useTokenInfo.js";
 import {useTxState} from "../hooks/useTxState.js";
 import {VOTE_AGAINST, VOTE_ABSTAIN, VOTE_FOR} from "../abis/Governor.js";
 import {StatusBadge} from "./StatusBadge.jsx";
@@ -15,8 +16,27 @@ export function ProposalView({proposalId, proposalMeta, onBack}) {
     const {account} = useWeb3();
     const {governor} = useContracts();
     const live = useProposal(proposalId);
+    const {govBalance, votingPower} = useTokenInfo();
     const tx = useTxState();
     const [reason, setReason] = useState("");
+
+    const pastVotesNum = live.pastVotes != null ? Number(live.pastVotes) : null;
+    const govBalanceNum = govBalance != null ? Number(govBalance) : null;
+    const votingPowerNum = votingPower != null ? Number(votingPower) : null;
+    // What the user "effectively has" right now: the larger of their current
+    // delegated voting power and their token balance. Either represents power
+    // they *could* wield, but neither retroactively counts for a snapshot
+    // already taken in the past.
+    const currentEffectiveNum = Math.max(govBalanceNum ?? 0, votingPowerNum ?? 0);
+
+    const showZeroPowerWarning =
+        account && pastVotesNum === 0 && currentEffectiveNum > 0;
+    const showLimitedPowerWarning =
+        account &&
+        !showZeroPowerWarning &&
+        pastVotesNum != null &&
+        pastVotesNum > 0 &&
+        currentEffectiveNum > pastVotesNum;
 
     const cast = async (support) => {
         if (!governor) return;
@@ -59,10 +79,24 @@ export function ProposalView({proposalId, proposalMeta, onBack}) {
                     <h2 className="h5 mb-0 me-3">{proposalMeta?.description ?? `Proposal #${proposalId.slice(0, 10)}`}</h2>
                     <StatusBadge state={live.stateLabel} />
                 </div>
-                <div className="text-muted small font-monospace">id #{proposalId}</div>
+                <div className="text-muted small font-monospace text-break" style={{wordBreak: "break-all"}}>
+                    id #{proposalId}
+                </div>
                 <div className="mt-3 small text-muted">
                     Snapshot block {live.snapshotBlock} · Deadline block {live.deadlineBlock}
                 </div>
+
+                {showZeroPowerWarning && (
+                    <div className="alert alert-danger small mt-3 mb-0">
+                        <strong>⚠ No voting power for this proposal.</strong> You have 0 voting power for this proposal because you held no delegated tokens at the time of the snapshot (block #{live.snapshotBlock}). You currently hold {formatNumber(govBalance, 0)} GOV / {formatNumber(votingPower, 0)} delegated, but those are not counted retroactively.
+                    </div>
+                )}
+
+                {showLimitedPowerWarning && (
+                    <div className="alert alert-warning small mt-3 mb-0">
+                        <strong>⚠ Voting power mismatch.</strong> Your voting power for this proposal is limited to {formatNumber(live.pastVotes, 0)} GOV (the value at snapshot block #{live.snapshotBlock}). You now control {formatNumber(currentEffectiveNum, 0)} GOV — the additional {formatNumber(currentEffectiveNum - Number(live.pastVotes), 0)} GOV delegated or acquired after the snapshot are not counted for this specific vote.
+                    </div>
+                )}
             </div>
 
             <div className="card-stat p-4 mb-3">

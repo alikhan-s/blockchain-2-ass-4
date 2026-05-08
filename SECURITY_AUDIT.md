@@ -176,36 +176,36 @@ The defence relies on three configured invariants. All three are asserted by the
 
 ### 5.1 `GovernanceToken.sol`
 
-- ✅ Constructor mints exactly `100_000_000 ether` total. Allocations sum to 10 000 BPS (no rounding remainder).
-- ✅ `_update` calls `super._update` to keep `Votes` checkpoints consistent with balance changes.
-- ✅ Custom error `DuplicateRecipient` prevents accidentally collapsing two roles into one address (which would shift the implicit voting weight).
-- ⚠ **Note:** the four recipient addresses are `immutable`. If any of them needs to be rotated (e.g. compromised airdrop key), the only path is for the holder to `transfer` themselves. The contract has no admin override — by design.
+- Constructor mints exactly `100_000_000 ether` total. Allocations sum to 10 000 BPS (no rounding remainder).
+- `_update` calls `super._update` to keep `Votes` checkpoints consistent with balance changes.
+- сustom error `DuplicateRecipient` prevents accidentally collapsing two roles into one address (which would shift the implicit voting weight).
+- **Note:** the four recipient addresses are `immutable`. If any of them needs to be rotated (e.g. compromised airdrop key), the only path is for the holder to `transfer` themselves. The contract has no admin override — by design.
 
 ### 5.2 `TokenVesting.sol`
 
-- ✅ `release()` is `nonReentrant`. Even if the underlying token had a re-entrancy hook (e.g. ERC-777-style), the guard plus CEI ordering prevents double-claims.
-- ✅ Schedule cannot be overwritten (`ScheduleAlreadyExists`).
-- ✅ Outstanding-balance invariant prevents over-allocation.
-- ⚠ **Low.** No revoke/clawback path for terminated employees. This is a product decision; in a corporate-style DAO consider adding a `revoke(address beneficiary)` callable by the timelock that zeroes the schedule and refunds the unvested portion.
+- `release()` is `nonReentrant`. Even if the underlying token had a re-entrancy hook (e.g. ERC-777-style), the guard plus CEI ordering prevents double-claims.
+- Schedule cannot be overwritten (`ScheduleAlreadyExists`).
+- Outstanding-balance invariant prevents over-allocation.
+- **Low.** No revoke/clawback path for terminated employees. This is a product decision; in a corporate-style DAO consider adding a `revoke(address beneficiary)` callable by the timelock that zeroes the schedule and refunds the unvested portion.
 
 ### 5.3 `MyGovernor.sol`
 
-- ✅ Composes the recommended OZ extension stack.
-- ✅ All multi-inheritance overrides (`votingDelay`, `votingPeriod`, `proposalThreshold`, `quorum`, `state`, `proposalNeedsQueuing`, `_queueOperations`, `_executeOperations`, `_cancel`, `_executor`) are present and call `super` correctly.
-- ✅ Block-number clock matches the token (asserted in tests).
-- ⚠ **Medium.** No `GovernorPreventLateQuorum`. A whale could submit a swing vote in the last block of the voting period to prevent counter-mobilisation. **Recommendation:** add `GovernorPreventLateQuorum` with a 1-day extension before mainnet launch.
+- Composes the recommended OZ extension stack.
+- All multi-inheritance overrides (`votingDelay`, `votingPeriod`, `proposalThreshold`, `quorum`, `state`, `proposalNeedsQueuing`, `_queueOperations`, `_executeOperations`, `_cancel`, `_executor`) are present and call `super` correctly.
+- Block-number clock matches the token (asserted in tests).
+- **Medium.** No `GovernorPreventLateQuorum`. A whale could submit a swing vote in the last block of the voting period to prevent counter-mobilisation. **Recommendation:** add `GovernorPreventLateQuorum` with a 1-day extension before mainnet launch.
 
 ### 5.4 `Treasury.sol`
 
-- ✅ Strict `onlyTimelock` gate. Custom error `NotTimelock(caller)` aids monitoring.
-- ✅ `nonReentrant` on every external call.
-- ✅ `receive()` emits `ETHReceived` for indexing.
-- ⚠ **Low.** `execute` allows any `(target, value, data)` triple. Token-holders should review proposed payloads carefully. Consider adding an off-chain calldata-decoder (e.g. Tenderly-simulated trace) as a UX layer.
+- Strict `onlyTimelock` gate. Custom error `NotTimelock(caller)` aids monitoring.
+- `nonReentrant` on every external call.
+- `receive()` emits `ETHReceived` for indexing.
+- **Low.** `execute` allows any `(target, value, data)` triple. Token-holders should review proposed payloads carefully. Consider adding an off-chain calldata-decoder (e.g. Tenderly-simulated trace) as a UX layer.
 
 ### 5.5 `Box.sol`
 
-- ✅ Minimal surface; only `store(uint256)` is mutable, gated by `onlyTimelock`.
-- ✅ `retrieve()` is view-only.
+- Minimal surface; only `store(uint256)` is mutable, gated by `onlyTimelock`.
+- `retrieve()` is view-only.
 
 ---
 

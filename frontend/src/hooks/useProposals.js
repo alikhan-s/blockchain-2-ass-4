@@ -81,7 +81,7 @@ export function useProposals() {
 
 /// Fetch a single proposal's live state + tally + whether the connected user has voted.
 export function useProposal(proposalId) {
-    const {governor} = useContracts();
+    const {governor, token} = useContracts();
     const {account} = useWeb3();
     const [data, setData] = useState({loading: true});
     const [nonce, setNonce] = useState(0);
@@ -99,6 +99,17 @@ export function useProposal(proposalId) {
                     governor.proposalDeadline(proposalId),
                     account ? governor.hasVoted(proposalId, account) : Promise.resolve(false),
                 ]);
+
+                let pastVotes = null;
+                if (account && token && snapshot !== undefined) {
+                    try {
+                        const raw = await token.getPastVotes(account, snapshot);
+                        pastVotes = formatUnits(raw, 18);
+                    } catch {
+                        pastVotes = null;
+                    }
+                }
+
                 if (cancelled) return;
                 setData({
                     loading: false,
@@ -107,6 +118,7 @@ export function useProposal(proposalId) {
                     snapshotBlock: Number(snapshot),
                     deadlineBlock: Number(deadline),
                     hasVoted,
+                    pastVotes,
                     votes: {
                         against: formatUnits(votes[0], 18),
                         for: formatUnits(votes[1], 18),
@@ -120,7 +132,7 @@ export function useProposal(proposalId) {
         return () => {
             cancelled = true;
         };
-    }, [governor, account, proposalId, nonce]);
+    }, [governor, token, account, proposalId, nonce]);
 
     return {...data, refresh};
 }

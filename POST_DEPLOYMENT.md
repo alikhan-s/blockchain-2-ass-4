@@ -293,20 +293,17 @@ Drift in any of these means the contracts have been mutated (or governance has *
 ## 3. Quick links template (paste into release notes)
 
 ```
+==================
 DAO release v1.0.0
 ==================
-Network          : Anvil Testnet
-[1] TokenVesting    : 0x5FbDB2315678afecb367f032d93F642f64180aa3
-[2] GovernanceToken : 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-[3] TimelockController: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
-[4] MyGovernor      : 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+Network          : Sepolia Testnet
+[1] TokenVesting    : 0xc0E4Ce3a6d66dfCe334b0De19784d8c91aFE0898
+[2] GovernanceToken : 0x2D66D772ccF068cb54B28D14f8b7B6087DE48CB1
+[3] TimelockController: 0x2787cAc10cfD49d76cAc6A2a36a5Ce230feb12C4
+[4] MyGovernor      : 0x6027FD117b73e085c80Ac3E5d2a33110ecbBA757
     EXECUTOR_ROLE -> address(0) (open executor)
     DEFAULT_ADMIN_ROLE revoked from deployer
-[5] Treasury        : 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
-[6] Box             : 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
-Subgraph         : https://thegraph.com/explorer/subgraphs/<id>
-Dashboard        : https://dao.example.org
-Frontend         : https://app.example.org
-Sentinel rules   : https://defender.openzeppelin.com/...
+[5] Treasury        : 0x7Dd6d7Ed4541C18bF1dffa962373B969EA6D44E9
+[6] Box             : 0x6C5487fB8849e888A778662A530C5d80C9F92d7f
 SECURITY_AUDIT.md: ./SECURITY_AUDIT.md
 ```

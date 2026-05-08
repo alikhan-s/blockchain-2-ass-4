@@ -75,8 +75,8 @@ abstract contract E2EFixture is Test {
 
     //    GOVERNANCE HELPER
 
-    /// @dev Run a single-action proposal end-to-end: propose → wait → vote For → wait →
-    ///      queue → wait timelock → execute. Returns the proposal id.
+    /// @dev Run a single-action proposal end-to-end: propose -> wait -> vote For -> wait ->
+    ///      queue -> wait timelock -> execute. Returns the proposal id.
     function _runProposal(address target, uint256 value, bytes memory data, string memory description)
         internal
         returns (uint256 proposalId)
