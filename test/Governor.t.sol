@@ -144,7 +144,7 @@ abstract contract DAOFixture is Test {
 //    ROLES & WIRING
 
 contract GovernorWiringTest is DAOFixture {
-    function test_GovernorParametersAreCorrect() public view {
+    function test_GovernorParametersAreCorrect() public {
         assertEq(governor.votingDelay(), 7_200, "voting delay = 1 day in blocks");
         assertEq(governor.votingPeriod(), 50_400, "voting period = 1 week in blocks");
         assertEq(governor.proposalThreshold(), 1_000_000 ether, "proposal threshold = 1% supply");
@@ -154,7 +154,7 @@ contract GovernorWiringTest is DAOFixture {
         assertEq(q, (TOTAL_SUPPLY * 4) / 100, "quorum amount = 4M GOV");
     }
 
-    function test_TimelockRolesAreOnlyGovernor() public view {
+    function test_TimelockRolesAreOnlyGovernor() public {
         assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), address(governor)), "governor proposer");
         assertTrue(timelock.hasRole(timelock.EXECUTOR_ROLE(), address(governor)), "governor executor");
         assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), address(governor)), "governor canceller");

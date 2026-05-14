@@ -31,12 +31,12 @@ abstract contract DeployFixture is Test {
 }
 
 contract GovernanceTokenAllocationTest is DeployFixture {
-    function test_TotalSupplyMintedAtDeployment() public view {
+    function test_TotalSupplyMintedAtDeployment() public {
         assertEq(token.totalSupply(), token.TOTAL_SUPPLY());
         assertEq(token.TOTAL_SUPPLY(), 100_000_000 ether);
     }
 
-    function test_AllocationsMatchTokenomics() public view {
+    function test_AllocationsMatchTokenomics() public {
         assertEq(token.balanceOf(address(vesting)), 40_000_000 ether, "team 40%");
         assertEq(token.balanceOf(treasury), 30_000_000 ether, "treasury 30%");
         assertEq(token.balanceOf(airdrop), 20_000_000 ether, "airdrop 20%");
@@ -157,7 +157,7 @@ contract GovernanceTokenVotesTest is DeployFixture {
         token.permit(ownerEoa, spender, 100, deadline, v, r, s);
     }
 
-    function test_ClockModeIsBlockNumber() public view {
+    function test_ClockModeIsBlockNumber() public {
         // Default OZ ERC20Votes clock is block.number — required so the Governor's
         // voting delay and voting period below can be expressed strictly in blocks.
         assertEq(token.CLOCK_MODE(), "mode=blocknumber&from=default");
