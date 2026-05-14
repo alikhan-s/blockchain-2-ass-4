@@ -19,7 +19,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 /// Parameters
 /// ----------
 /// - Voting delay:        7_200 blocks  (~1 day at 12s/block)
-/// - Voting period:      50_400 blocks  (~1 week at 12s/block)
+/// - Voting period:       50_400 blocks  (~1 week at 12s/block)
 /// - Proposal threshold:  1% of total supply
 /// - Quorum:              4% of total supply
 /// - Timelock min delay:  2 days
